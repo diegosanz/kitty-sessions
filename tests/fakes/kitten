@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+shift
+command="$1"
+shift
+printf '%s\n' "$command $*" >> "$KITTEN_FAKE_LOG"
+case "$command" in
+  ls)
+    [ -f "$KITTEN_FAKE_LS" ] || exit 1
+    cat "$KITTEN_FAKE_LS"
+    if [ -n "${KITTEN_FAKE_LS_NEXT:-}" ]; then
+      cp "$KITTEN_FAKE_LS_NEXT" "$KITTEN_FAKE_LS"
+    fi
+    ;;
+  get-text)
+    window_id="$(grep -oE 'id:[0-9]+' <<< "$*" | cut -d: -f2)"
+    cat "$KITTEN_FAKE_SCREENS/$window_id" 2>/dev/null
+    ;;
+  set-tab-title|launch) ;;
+  *) exit 1 ;;
+esac

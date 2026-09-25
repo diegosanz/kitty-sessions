@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+printf 'opencode %s\n' "$*" >> "$KITTEN_FAKE_LOG"
+if [ "$1" = "db" ]; then
+  case "$*" in
+    *"select id from session"*) printf 'id\nses_fake123\n' ;;
+    *"select title from session"*) printf 'title\nSesión opencode\n' ;;
+  esac
+fi

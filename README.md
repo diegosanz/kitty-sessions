@@ -5,8 +5,9 @@ shells que tengas en kitty, y las restaura después reanudando la misma sesión.
 bash, sin servidor, sin hooks ni plugins en los agentes.
 
 Un único proceso `kitty-agents watch` por instancia de kitty recorre cada segundo las
-ventanas con `kitten @ ls`, detecta los agentes por el proceso en primer plano y guarda un
-snapshot cada vez que cambia lo que hay abierto.
+ventanas con `kitten @ ls`, detecta los agentes por el proceso en primer plano, guarda un
+snapshot cada vez que cambia lo que hay abierto y pone una campana en la tab cuando un
+agente termina sin que lo estés mirando.
 
 ## Requisitos
 
@@ -61,7 +62,7 @@ solo sobrevive el primero. Muere solo cuando se cierra kitty.
 
 | Comando                         | Acción                                                        |
 | ------------------------------- | ------------------------------------------------------------- |
-| `kitty-agents watch`            | Observa las ventanas y guarda cuando cambia lo abierto        |
+| `kitty-agents watch`            | Observa las ventanas, guarda cuando cambia lo abierto y avisa |
 | `kitty-agents save [nombre]`    | Guarda las sesiones de agente y las shells abiertas           |
 | `kitty-agents restore [nombre]` | Reabre en tabs nuevas lo guardado                             |
 | `kitty-agents list`             | Lista `_auto` y las sesiones con nombre                       |
@@ -88,6 +89,19 @@ abres, cierras o mueves algo; restaura antes de ponerte a trabajar.
 Cada guardado crea un fichero nuevo y solo se conservan los últimos `KITTY_AGENTS_HISTORY`;
 los locks de watchers que ya no existen se borran al arrancar el siguiente.
 
+## Campana al terminar
+
+Claude Code escribe su estado en el título de la ventana: `◐`/`◑` mientras trabaja y `✳`
+cuando espera el siguiente prompt. El watcher vigila ese título y, cuando ve pasar de
+trabajando a terminado en una tab que no es la activa, cambia el título de la tab a
+`🔔 ✳ <título>`. Al cambiar a esa tab la campana desaparece y la tab vuelve a seguir el
+título de la ventana. Si el agente se pone a trabajar de nuevo antes de que la veas, la
+campana se quita y volverá a sonar cuando termine.
+
+No hay campana para lo que ya estaba terminado al arrancar el watcher, ni si la tab
+estaba a la vista cuando terminó. opencode no publica su estado en el título, así que de
+momento queda fuera.
+
 ## Cómo se descubre la sesión
 
 - **Claude Code**: `--session-id`, `--resume` o `-r` en la línea de comandos; si no, el
@@ -103,6 +117,7 @@ el mismo directorio se guardará la misma sesión para ambas.
 
 | Variable                        | Valor por defecto                        |
 | ------------------------------- | ---------------------------------------- |
+| `KITTY_AGENTS_ICON_BELL`        | `🔔`                                     |
 | `KITTY_AGENTS_INTERVAL`         | `1` (segundos entre sondeos)             |
 | `KITTY_AGENTS_HISTORY`          | `20` (snapshots que se conservan)        |
 | `KITTY_AGENTS_DATA_DIR`         | `$XDG_DATA_HOME/kitty-agents`            |

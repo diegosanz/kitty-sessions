@@ -30,6 +30,18 @@ agent_resume() {
   printf 'claude -r %q' "$1"
 }
 
+agent_working() {
+  [[ "$1" == ◐* || "$1" == ◑* ]]
+}
+
+agent_finished() {
+  [[ "$1" == ✳* ]]
+}
+
+agent_finished_transition() {
+  agent_working "$1" && agent_finished "$2"
+}
+
 claude_session_from_cmdline() {
   grep -oE -- '(--session-id|--resume|-r)[ =][0-9a-f-]{36}' <<< "$1" | grep -oE '[0-9a-f-]{36}' | head -1 || true
 }

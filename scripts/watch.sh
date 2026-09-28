@@ -37,6 +37,68 @@ acquire_lock() {
 
 previous_sessions=""
 baseline_taken=""
+declare -A previous_titles=()
+declare -A bell_titles=()
+
+ring_bell() {
+  bell_titles[$1]="$2"
+  show_bell "$1" "$2"
+}
+
+silence_bell() {
+  unset 'bell_titles[$1]'
+  hide_bell "$1"
+}
+
+update_bell() {
+  local window_id="$1" title="$2" tab_active="$3"
+  if [ "$tab_active" = true ] || ! agent_finished "$title"; then
+    silence_bell "$window_id"
+  elif [ "${bell_titles[$window_id]}" != "$title" ]; then
+    ring_bell "$window_id" "$title"
+  fi
+}
+
+ring_on_completion() {
+  local window_id="$1" previous="$2" title="$3" tab_active="$4"
+  [ -n "$previous" ] || return 0
+  [ "$tab_active" = false ] || return 0
+  agent_finished_transition "$previous" "$title" && ring_bell "$window_id" "$title"
+  return 0
+}
+
+track_bell() {
+  local window_id="$1" exes="$2" tab_active="$3" title="$4" previous
+  previous="${previous_titles[$window_id]-}"
+  previous_titles[$window_id]="$title"
+  if ! find_agent "$exes" || ! agent_reports_completion; then
+    [ -n "${bell_titles[$window_id]-}" ] && silence_bell "$window_id"
+    return 0
+  fi
+  if [ -n "${bell_titles[$window_id]-}" ]; then
+    update_bell "$window_id" "$title" "$tab_active"
+  else
+    ring_on_completion "$window_id" "$previous" "$title" "$tab_active"
+  fi
+}
+
+track_bells() {
+  local window_id cwd exes cmdlines tab_active title
+  while IFS=$'\t' read -r window_id cwd exes cmdlines tab_active title; do
+    [ -n "$window_id" ] || continue
+    track_bell "$window_id" "$exes" "$tab_active" "$title"
+  done <<< "$1"
+  forget_closed_windows "$1"
+}
+
+forget_closed_windows() {
+  local open_ids window_id
+  open_ids="$(cut -f1 <<< "$1")"
+  for window_id in "${!previous_titles[@]}"; do
+    grep -qxF "$window_id" <<< "$open_ids" && continue
+    unset 'previous_titles[$window_id]' 'bell_titles[$window_id]'
+  done
+}
 
 autosave_if_changed() {
   [ "$current_sessions" != "$previous_sessions" ] || return 0
@@ -51,6 +113,7 @@ autosave_if_changed() {
 cycle() {
   local listing
   listing="$(kitten_ls)" || return 1
+  track_bells "$listing"
   current_sessions="$(snapshot_rows "$listing" | snapshot_change_key)"
   autosave_if_changed
 }

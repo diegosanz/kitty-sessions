@@ -25,7 +25,16 @@ window_json() {
 
 write_ls() {
   local target="${1:-$KITTEN_FAKE_LS}"
-  jq -s '[{tabs: [{windows: .}]}]' > "$target"
+  jq -s '[{tabs: [{is_active: false, windows: .}]}]' > "$target"
+}
+
+write_active_ls() {
+  local target="${1:-$KITTEN_FAKE_LS}"
+  jq -s '[{tabs: [{is_active: true, windows: .}]}]' > "$target"
+}
+
+tab_title_calls() {
+  grep '^set-tab-title' "$KITTEN_FAKE_LOG" || true
 }
 
 claude_session_file() {

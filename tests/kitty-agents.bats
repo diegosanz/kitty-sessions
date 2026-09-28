@@ -28,6 +28,76 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   [ -z "$(ls "$KITTY_AGENTS_DATA_DIR" 2>/dev/null | grep agents_)" ]
 }
 
+@test "watch rings the bell when claude finishes in a tab you are not looking at" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◐ pensando" claude)
+  write_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
+  run tab_title_calls
+  [ "$output" = "set-tab-title -m window_id:7 🔔 ✳ Claude Code" ]
+}
+
+@test "watch does not ring the bell when the tab is already active" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◑ pensando" claude)
+  write_active_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
+  run tab_title_calls
+  [ -z "$output" ]
+}
+
+@test "watch does not ring the bell for a claude that was already done at startup" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  KITTY_AGENTS_ONCE=2 kitty-agents watch
+  run tab_title_calls
+  [ -z "$output" ]
+}
+
+@test "watch clears the bell once you switch to the tab" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◐ pensando" claude)
+  write_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  write_active_ls "$BATS_TEST_TMPDIR/seen.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json:$BATS_TEST_TMPDIR/seen.json" KITTY_AGENTS_ONCE=3 kitty-agents watch
+  run tab_title_calls
+  [ "${lines[0]}" = "set-tab-title -m window_id:7 🔔 ✳ Claude Code" ]
+  [ "${lines[1]}" = "set-tab-title -m window_id:7 " ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "watch clears the bell when claude goes back to work unseen" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◐ pensando" claude)
+  write_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  write_ls "$BATS_TEST_TMPDIR/again.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "◑ pensando" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json:$BATS_TEST_TMPDIR/again.json" KITTY_AGENTS_ONCE=3 kitty-agents watch
+  run tab_title_calls
+  [ "${lines[1]}" = "set-tab-title -m window_id:7 " ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "watch follows title changes while the bell is showing" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◐ pensando" claude)
+  write_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  write_ls "$BATS_TEST_TMPDIR/renamed.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ mi sesión" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json:$BATS_TEST_TMPDIR/renamed.json" KITTY_AGENTS_ONCE=4 kitty-agents watch
+  run tab_title_calls
+  [ "${lines[1]}" = "set-tab-title -m window_id:7 🔔 ✳ mi sesión" ]
+  [ "${#lines[@]}" -eq 2 ]
+}
+
+@test "watch uses the bell icon from the environment" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◐ pensando" claude)
+  write_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  KITTY_AGENTS_ICON_BELL="!" KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
+  run tab_title_calls
+  [ "$output" = "set-tab-title -m window_id:7 ! ✳ Claude Code" ]
+}
+
+@test "watch leaves the tabs of opencode alone" {
+  write_ls < <(window_json 8 "$BATS_TEST_TMPDIR" "◐ opencode" opencode)
+  write_ls "$BATS_TEST_TMPDIR/done.json" < <(window_json 8 "$BATS_TEST_TMPDIR" "✳ opencode" opencode)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/done.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
+  run tab_title_calls
+  [ -z "$output" ]
+}
+
 @test "save takes the session id from the command line when present" {
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude --session-id "$CLAUDE_ID")
   run kitty-agents save

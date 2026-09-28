@@ -17,10 +17,16 @@ setup() {
 window_json() {
   local id="$1" cwd="$2" title="$3"
   shift 3
-  local cmdline
+  local cmdline pid="${WINDOW_PID:-1}"
   cmdline="$(printf '%s\n' "$@" | jq -R . | jq -s .)"
-  jq -n --argjson id "$id" --arg cwd "$cwd" --arg title "$title" --argjson cmdline "$cmdline" \
-    '{id: $id, cwd: $cwd, title: $title, foreground_processes: [{pid: 1, cwd: $cwd, cmdline: $cmdline}]}'
+  jq -n --argjson id "$id" --arg cwd "$cwd" --arg title "$title" --argjson cmdline "$cmdline" --argjson pid "$pid" \
+    '{id: $id, cwd: $cwd, title: $title, foreground_processes: [{pid: $pid, cwd: $cwd, cmdline: $cmdline}]}'
+}
+
+claude_process_file() {
+  local pid="$1" id="$2" cwd="$3"
+  mkdir -p "$CLAUDE_CONFIG_DIR/sessions"
+  jq -n --argjson pid "$pid" --arg id "$id" --arg cwd "$cwd" '{pid: $pid, sessionId: $id, cwd: $cwd}' > "$CLAUDE_CONFIG_DIR/sessions/$pid.json"
 }
 
 write_ls() {

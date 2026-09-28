@@ -11,13 +11,11 @@ agent_matches() {
 }
 
 agent_discover_session() {
-  local cwd="$1" cmdline="$2" id
-  id="$(claude_session_from_cmdline "$cmdline")"
-  if [ -n "$id" ]; then
-    echo "$id"
-  else
-    claude_newest_session "$cwd"
-  fi
+  local cwd="$1" cmdline="$2" pids="$3" id
+  id="$(claude_session_from_pids "$pids")"
+  [ -n "$id" ] || id="$(claude_session_from_cmdline "$cmdline")"
+  [ -n "$id" ] || id="$(claude_newest_session "$cwd")"
+  echo "$id"
 }
 
 agent_session_name() {
@@ -42,6 +40,16 @@ agent_finished_transition() {
   agent_working "$1" && agent_finished "$2"
 }
 
+claude_session_from_pids() {
+  local pid file id
+  for pid in $1; do
+    file="$(claude_config_dir)/sessions/$pid.json"
+    [ -f "$file" ] || continue
+    id="$(jq -r '.sessionId // empty' "$file" 2>/dev/null || true)"
+    [ -z "$id" ] || { echo "$id"; return 0; }
+  done
+}
+
 claude_session_from_cmdline() {
   grep -oE -- '(--session-id|--resume|-r)[ =][0-9a-f-]{36}' <<< "$1" | grep -oE '[0-9a-f-]{36}' | head -1 || true
 }
@@ -53,6 +61,10 @@ claude_newest_session() {
   basename "$file" .jsonl
 }
 
+claude_config_dir() {
+  echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+}
+
 claude_project_dir() {
-  echo "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(sed 's/[^A-Za-z0-9]/-/g' <<< "$1")"
+  echo "$(claude_config_dir)/projects/$(sed 's/[^A-Za-z0-9]/-/g' <<< "$1")"
 }

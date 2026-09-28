@@ -1,6 +1,7 @@
 load test_helper
 
 CLAUDE_ID="11111111-2222-3333-4444-555555555555"
+OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
 
 @test "watch autosaves once the open sessions change" {
   claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID" "mi sesión"
@@ -118,6 +119,22 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   kitty-agents save
   run last_snapshot_rows
   [[ "$output" == "opencode	ses_fake123	$BATS_TEST_TMPDIR	Sesión opencode	"* ]]
+}
+
+@test "save tells apart several claudes open in the same directory" {
+  claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID"
+  claude_session_file "$BATS_TEST_TMPDIR" "$OTHER_CLAUDE_ID"
+  claude_process_file 41 "$CLAUDE_ID" "$BATS_TEST_TMPDIR"
+  claude_process_file 42 "$OTHER_CLAUDE_ID" "$BATS_TEST_TMPDIR"
+  {
+    WINDOW_PID=41 window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude
+    WINDOW_PID=42 window_json 8 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude
+  } | write_ls
+  kitty-agents save
+  run last_snapshot_rows
+  [ "${#lines[@]}" -eq 2 ]
+  [[ "${lines[0]}" == "claude	$CLAUDE_ID	"* ]]
+  [[ "${lines[1]}" == "claude	$OTHER_CLAUDE_ID	"* ]]
 }
 
 @test "save skips agents whose session cannot be discovered" {

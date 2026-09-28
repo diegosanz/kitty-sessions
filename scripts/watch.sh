@@ -83,8 +83,8 @@ track_bell() {
 }
 
 track_bells() {
-  local window_id cwd exes cmdlines tab_active title
-  while IFS=$'\t' read -r window_id cwd exes cmdlines tab_active title; do
+  local window_id cwd exes cmdlines pids tab_active title
+  while IFS=$'\t' read -r window_id cwd exes cmdlines pids tab_active title; do
     [ -n "$window_id" ] || continue
     track_bell "$window_id" "$exes" "$tab_active" "$title"
   done <<< "$1"

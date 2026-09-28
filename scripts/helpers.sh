@@ -89,6 +89,7 @@ kitten_ls() {
         .cwd,
         ((.foreground_processes // []) | map(exe_name) | join(" ")),
         ((.foreground_processes // []) | map(.cmdline | join(" ")) | join(" || ")),
+        ((.foreground_processes // []) | map(.pid | tostring) | join(" ")),
         $tab_active,
         .title
       ]
@@ -172,12 +173,12 @@ foreground_command() {
 }
 
 snapshot_row() {
-  local cwd="$1" exes="$2" cmdlines="$3" title="$4" saved_at="$5" agent session_id name
+  local cwd="$1" exes="$2" cmdlines="$3" pids="$4" title="$5" saved_at="$6" agent session_id name
   if ! find_agent "$exes"; then
     printf '%s\t%s\t%s\t%s\t%s\n' "$SHELL_ROW" "$EMPTY_FIELD" "$cwd" "$(foreground_command "$exes" "$cmdlines")" "$saved_at"
     return 0
   fi
-  session_id="$(agent_discover_session "$cwd" "$cmdlines")"
+  session_id="$(agent_discover_session "$cwd" "$cmdlines" "$pids")"
   [ -n "$session_id" ] || return 0
   name="$(agent_session_name "$session_id" "$cwd")"
   [ -n "$name" ] || name="$title"
@@ -186,11 +187,11 @@ snapshot_row() {
 }
 
 snapshot_rows() {
-  local window_id cwd exes cmdlines tab_active title saved_at
+  local window_id cwd exes cmdlines pids tab_active title saved_at
   saved_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  while IFS=$'\t' read -r window_id cwd exes cmdlines tab_active title; do
+  while IFS=$'\t' read -r window_id cwd exes cmdlines pids tab_active title; do
     [ -n "$window_id" ] || continue
-    snapshot_row "$cwd" "$exes" "$cmdlines" "$title" "$saved_at"
+    snapshot_row "$cwd" "$exes" "$cmdlines" "$pids" "$title" "$saved_at"
   done <<< "$1"
 }
 
@@ -199,18 +200,18 @@ snapshot_change_key() {
 }
 
 open_shell_cwds() {
-  local window_id cwd exes cmdlines tab_active title
-  while IFS=$'\t' read -r window_id cwd exes cmdlines tab_active title; do
+  local window_id cwd exes cmdlines pids tab_active title
+  while IFS=$'\t' read -r window_id cwd exes cmdlines pids tab_active title; do
     find_agent "$exes" && continue
     echo "$cwd"
   done < <(kitten_ls)
 }
 
 open_sessions() {
-  local window_id cwd exes cmdlines tab_active title agent session_id
-  while IFS=$'\t' read -r window_id cwd exes cmdlines tab_active title; do
+  local window_id cwd exes cmdlines pids tab_active title agent session_id
+  while IFS=$'\t' read -r window_id cwd exes cmdlines pids tab_active title; do
     find_agent "$exes" || continue
-    session_id="$(agent_discover_session "$cwd" "$cmdlines")"
+    session_id="$(agent_discover_session "$cwd" "$cmdlines" "$pids")"
     [ -n "$session_id" ] || continue
     echo "$session_id"
   done < <(kitten_ls)

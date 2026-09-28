@@ -3,10 +3,15 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
-snapshot="$(last_snapshot)"
+name="${1:-}"
+snapshot="$(snapshot_for "$name")"
 if [ ! -f "$snapshot" ]; then
-  echo "nothing to restore"
-  exit 0
+  if is_auto_session "$name"; then
+    echo "nothing to restore"
+    exit 0
+  fi
+  echo "no session named $name" >&2
+  exit 1
 fi
 
 already_open_sessions="$(open_sessions)"

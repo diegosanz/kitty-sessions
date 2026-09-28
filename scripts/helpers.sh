@@ -9,6 +9,39 @@ last_snapshot() {
   echo "$(data_dir)/last"
 }
 
+AUTO_SESSION="_auto"
+
+sessions_dir() {
+  echo "$(data_dir)/sessions"
+}
+
+is_auto_session() {
+  [ -z "$1" ] || [ "$1" = "$AUTO_SESSION" ]
+}
+
+valid_session_name() {
+  [[ "$1" =~ ^[A-Za-z0-9_-]+$ ]]
+}
+
+require_valid_session_name() {
+  valid_session_name "$1" && return 0
+  echo "invalid session name: $1 (use letters, digits, - and _)" >&2
+  exit 1
+}
+
+named_session_file() {
+  echo "$(sessions_dir)/$1.tsv"
+}
+
+snapshot_for() {
+  if is_auto_session "$1"; then
+    last_snapshot
+  else
+    require_valid_session_name "$1"
+    named_session_file "$1"
+  fi
+}
+
 poll_interval() {
   echo "${KITTY_AGENTS_INTERVAL:-1}"
 }
@@ -74,6 +107,15 @@ write_snapshot() {
   printf '%s' "$rows" > "$snapshot"
   ln -sfn "$(basename "$snapshot")" "$dir/last"
   prune_old_snapshots "$dir"
+  echo "$snapshot"
+}
+
+write_named_session() {
+  local name="$1" rows="$2" snapshot
+  require_valid_session_name "$name"
+  mkdir -p "$(sessions_dir)"
+  snapshot="$(named_session_file "$name")"
+  printf '%s' "$rows" > "$snapshot"
   echo "$snapshot"
 }
 

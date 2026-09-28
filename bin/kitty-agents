@@ -5,18 +5,22 @@ SCRIPTS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../scripts" &
 
 usage() {
   cat >&2 <<'USAGE'
-usage: kitty-agents <command>
+usage: kitty-agents <command> [name]
 
   watch            save the open sessions and shells whenever they change
-  save             save the open sessions and shells
-  restore          reopen what the last snapshot holds
+  save [name]      save the open sessions and shells, under a name if given
+  restore [name]   reopen what the last snapshot or the named session holds
+  list             list the named sessions
+  delete <name>    delete a named session
 USAGE
   exit 1
 }
 
 case "${1:-}" in
   watch) exec "$SCRIPTS_DIR/watch.sh" ;;
-  save) exec "$SCRIPTS_DIR/save.sh" manual ;;
-  restore) exec "$SCRIPTS_DIR/restore.sh" ;;
+  save) exec "$SCRIPTS_DIR/save.sh" manual "${2:-}" ;;
+  restore) exec "$SCRIPTS_DIR/restore.sh" "${2:-}" ;;
+  list) exec "$SCRIPTS_DIR/list.sh" ;;
+  delete) [ -n "${2:-}" ] || usage; exec "$SCRIPTS_DIR/delete.sh" "$2" ;;
   *) usage ;;
 esac

@@ -38,6 +38,12 @@ Opcional, un atajo para restaurar las sesiones guardadas:
 map ctrl+shift+u launch --type=background kitty-agents restore
 ```
 
+Y otro para guardar lo abierto bajo un nombre que te pida kitty:
+
+```
+map ctrl+shift+s launch --type=background sh -c 'name=$(kitten ask --type=line --prompt "Nombre de la sesión: ") && kitty-agents save "$name"'
+```
+
 ### `~/.zshrc`
 
 ```zsh
@@ -53,11 +59,18 @@ solo sobrevive el primero. Muere solo cuando se cierra kitty.
 
 ## Uso
 
-| Comando                       | Acción                                                        |
-| ----------------------------- | ------------------------------------------------------------- |
-| `kitty-agents watch`          | Observa las ventanas y guarda cuando cambia lo abierto        |
-| `kitty-agents save`           | Guarda las sesiones de agente y las shells abiertas           |
-| `kitty-agents restore`        | Reabre en tabs nuevas lo guardado en el último snapshot       |
+| Comando                         | Acción                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| `kitty-agents watch`            | Observa las ventanas y guarda cuando cambia lo abierto        |
+| `kitty-agents save [nombre]`    | Guarda las sesiones de agente y las shells abiertas           |
+| `kitty-agents restore [nombre]` | Reabre en tabs nuevas lo guardado                             |
+| `kitty-agents list`             | Lista `_auto` y las sesiones con nombre                       |
+| `kitty-agents delete <nombre>`  | Borra una sesión con nombre                                   |
+
+Sin nombre, `save` y `restore` trabajan sobre `_auto`, la sesión que mantiene el watcher.
+Con nombre (`[A-Za-z0-9_-]`), `save` escribe una foto fija que solo cambia si vuelves a
+guardar con ese nombre: el watcher no la toca, la poda no la borra y `restore <nombre>` la
+reabre igual que `_auto`. `_auto` está reservado y no se puede borrar.
 
 Restore es aditivo: abre una tab por sesión guardada, en su directorio, con
 `claude -r <id>` u `opencode -s <id>`. Se salta las sesiones ya abiertas, los directorios
@@ -95,7 +108,8 @@ el mismo directorio se guardará la misma sesión para ambas.
 | `KITTY_AGENTS_DATA_DIR`         | `$XDG_DATA_HOME/kitty-agents`            |
 
 Los snapshots son TSV (`agente, sesión, directorio, nombre, fecha`) en el directorio de
-datos, con un enlace `last` al más reciente. Las shells llevan `shell` como agente, `-` como
+datos, con un enlace `last` al más reciente. Las sesiones con nombre viven en
+`sessions/<nombre>.tsv` con el mismo formato. Las shells llevan `shell` como agente, `-` como
 sesión y el comando en primer plano como nombre (`-` si no había ninguno).
 
 ## Tests

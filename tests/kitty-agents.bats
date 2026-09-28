@@ -198,3 +198,85 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   [ -f "$KITTY_AGENTS_DATA_DIR/last" ]
 }
 
+
+@test "save with a name writes a named session and leaves the last snapshot alone" {
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude --session-id "$CLAUDE_ID")
+  run kitty-agents save trabajo
+  [ "$output" = "Saved trabajo" ]
+  [[ "$(cat "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv")" == "claude	$CLAUDE_ID	$BATS_TEST_TMPDIR	✳ Claude Code	"* ]]
+  [ ! -e "$KITTY_AGENTS_DATA_DIR/last" ]
+}
+
+@test "save with a name overwrites the previous session of that name" {
+  mkdir -p "$KITTY_AGENTS_DATA_DIR/sessions"
+  printf 'shell\t-\t%s\t-\t2026-01-01T00:00:00Z\n' "$HOME" > "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv"
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  kitty-agents save trabajo
+  [[ "$(cat "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv")" == "shell	-	$BATS_TEST_TMPDIR	-	"* ]]
+}
+
+@test "save _auto behaves like save without a name" {
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  run kitty-agents save _auto
+  [ "$output" = "Saved" ]
+  run last_snapshot_rows
+  [[ "$output" == "shell	-	$BATS_TEST_TMPDIR	-	"* ]]
+  [ ! -d "$KITTY_AGENTS_DATA_DIR/sessions" ]
+}
+
+@test "save rejects names with characters other than letters, digits, - and _" {
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  run kitty-agents save "mi sesion"
+  [ "$status" -eq 1 ]
+  run kitty-agents save "../x"
+  [ "$status" -eq 1 ]
+  [ ! -d "$KITTY_AGENTS_DATA_DIR/sessions" ]
+}
+
+@test "restore with a name reopens that session" {
+  mkdir -p "$KITTY_AGENTS_DATA_DIR/sessions"
+  printf 'claude\t%s\t%s\tmi sesión\t2026-01-01T00:00:00Z\n' "$CLAUDE_ID" "$BATS_TEST_TMPDIR" > "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv"
+  write_ls < /dev/null
+  run kitty-agents restore trabajo
+  [ "$output" = "Restored" ]
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- claude -r $CLAUDE_ID" "$KITTEN_FAKE_LOG"
+}
+
+@test "restore with an unknown name fails" {
+  run kitty-agents restore nada
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no session named nada"* ]]
+}
+
+@test "list shows _auto and the named sessions" {
+  printf 'shell\t-\t%s\t-\t2026-01-01T00:00:00Z\n' "$HOME" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR/sessions" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
+  printf 'claude\t%s\t%s\tx\t2026-02-02T00:00:00Z\nshell\t-\t%s\t-\t2026-02-02T00:00:00Z\n' "$CLAUDE_ID" "$HOME" "$HOME" > "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv"
+  run kitty-agents list
+  [ "${lines[0]}" = "_auto	2026-01-01T00:00:00Z	1 windows" ]
+  [ "${lines[1]}" = "trabajo	2026-02-02T00:00:00Z	2 windows" ]
+}
+
+@test "delete removes a named session" {
+  mkdir -p "$KITTY_AGENTS_DATA_DIR/sessions"
+  : > "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv"
+  run kitty-agents delete trabajo
+  [ "$output" = "Deleted trabajo" ]
+  [ ! -e "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv" ]
+}
+
+@test "delete fails for _auto and for unknown names" {
+  run kitty-agents delete _auto
+  [ "$status" -eq 1 ]
+  run kitty-agents delete nada
+  [ "$status" -eq 1 ]
+}
+
+@test "pruning old snapshots never touches named sessions" {
+  mkdir -p "$KITTY_AGENTS_DATA_DIR/sessions"
+  for i in 1 2 3; do : > "$KITTY_AGENTS_DATA_DIR/agents_2026010100000${i}000000000.tsv"; done
+  : > "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv"
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  KITTY_AGENTS_HISTORY=1 kitty-agents save
+  [ -f "$KITTY_AGENTS_DATA_DIR/sessions/trabajo.tsv" ]
+}

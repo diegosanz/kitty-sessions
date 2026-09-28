@@ -71,6 +71,17 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   [[ "$output" == "shell	-	$BATS_TEST_TMPDIR	npm run dev	"* ]]
 }
 
+@test "save ignores kitty's own dialogs such as the close confirmation" {
+  write_ls < <(
+    window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh
+    window_json 4 "$BATS_TEST_TMPDIR" "Close OS window" /usr/bin/kitten ask --type=yesno --message "Are you sure?"
+  )
+  kitty-agents save
+  run last_snapshot_rows
+  [ "${#lines[@]}" -eq 1 ]
+  [[ "$output" == "shell	-	$BATS_TEST_TMPDIR	-	"* ]]
+}
+
 @test "autosave never writes an empty snapshot" {
   claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID"
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)

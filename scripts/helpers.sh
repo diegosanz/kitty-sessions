@@ -43,6 +43,7 @@ kitten_ls() {
         then ($argv[1] // "" | split("/") | last)
         else $first end;
     .[].tabs[].windows[]
+    | select(((.foreground_processes // [])[0] // {} | exe_name) != "kitten")
     | [
         .id,
         .cwd,

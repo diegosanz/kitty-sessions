@@ -7,16 +7,29 @@ lock_file() {
   echo "$(data_dir)/watch-${KITTY_PID:-unknown}.lock"
 }
 
+lock_owner_alive() {
+  local pid
+  pid="$(cat "$1" 2>/dev/null)"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
 another_watcher_running() {
-  local lock pid
+  local lock
   lock="$(lock_file)"
-  [ -f "$lock" ] || return 1
-  pid="$(cat "$lock" 2>/dev/null)"
-  [ -n "$pid" ] && [ "$pid" != "$$" ] && kill -0 "$pid" 2>/dev/null
+  [ -f "$lock" ] && [ "$(cat "$lock" 2>/dev/null)" != "$$" ] && lock_owner_alive "$lock"
+}
+
+remove_stale_locks() {
+  local lock
+  for lock in "$(data_dir)"/watch-*.lock; do
+    [ -f "$lock" ] || continue
+    lock_owner_alive "$lock" || rm -f "$lock"
+  done
 }
 
 acquire_lock() {
   mkdir -p "$(data_dir)"
+  remove_stale_locks
   another_watcher_running && exit 0
   echo "$$" > "$(lock_file)"
   trap 'rm -f "$(lock_file)"' EXIT

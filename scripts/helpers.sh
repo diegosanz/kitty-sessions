@@ -13,6 +13,10 @@ poll_interval() {
   echo "${KITTY_AGENTS_INTERVAL:-1}"
 }
 
+snapshots_to_keep() {
+  echo "${KITTY_AGENTS_HISTORY:-20}"
+}
+
 list_agents() {
   local file
   for file in "$AGENTS_DIR"/*.sh; do
@@ -105,7 +109,15 @@ write_snapshot() {
   snapshot="$dir/agents_$(date +%Y%m%dT%H%M%S%N).tsv"
   printf '%s' "$rows" > "$snapshot"
   ln -sfn "$(basename "$snapshot")" "$dir/last"
+  prune_old_snapshots "$dir"
   echo "$snapshot"
+}
+
+prune_old_snapshots() {
+  local dir="$1" old
+  while read -r old; do
+    [ -n "$old" ] && rm -f "$old"
+  done < <(ls -1r "$dir"/agents_*.tsv 2>/dev/null | tail -n +"$(( $(snapshots_to_keep) + 1 ))")
 }
 
 open_sessions() {

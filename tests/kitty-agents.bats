@@ -132,6 +132,28 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   ! grep -q 'set-tab-title' "$KITTEN_FAKE_LOG"
 }
 
+@test "watch removes lock files of dead watchers" {
+  export KITTY_PID="$$"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR"
+  echo "999999999" > "$KITTY_AGENTS_DATA_DIR/watch-12345.lock"
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  kitty-agents watch
+  [ ! -f "$KITTY_AGENTS_DATA_DIR/watch-12345.lock" ]
+}
+
+@test "save keeps only the newest snapshots" {
+  mkdir -p "$KITTY_AGENTS_DATA_DIR"
+  for i in 1 2 3; do : > "$KITTY_AGENTS_DATA_DIR/agents_2026010100000${i}000000000.tsv"; done
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude --session-id "$CLAUDE_ID")
+  KITTY_AGENTS_HISTORY=2 kitty-agents save
+  run ls "$KITTY_AGENTS_DATA_DIR"
+  [[ "$output" != *"agents_20260101000001000000000.tsv"* ]]
+  [[ "$output" != *"agents_20260101000002000000000.tsv"* ]]
+  [[ "$output" == *"agents_20260101000003000000000.tsv"* ]]
+  [ "$(ls "$KITTY_AGENTS_DATA_DIR"/agents_*.tsv | wc -l)" -eq 2 ]
+  [ -f "$KITTY_AGENTS_DATA_DIR/last" ]
+}
+
 @test "watch resets the tab title once the agent exits" {
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
   screen 7 "❯"

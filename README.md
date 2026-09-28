@@ -78,6 +78,8 @@ que ya no existen y los agentes no instalados.
 
 El watcher guarda automáticamente cada vez que cambia el conjunto de sesiones abiertas y
 nunca escribe un snapshot vacío, así que cerrar todas las tabs no borra el último estado.
+Cada guardado crea un fichero nuevo y solo se conservan los últimos `KITTY_AGENTS_HISTORY`;
+los locks de watchers que ya no existen se borran al arrancar el siguiente.
 
 ## Cómo se descubre la sesión
 
@@ -104,6 +106,7 @@ ahí la expresión regular.
 | `KITTY_AGENTS_ICON_ATTENTION`   | `🔔`                                     |
 | `KITTY_AGENTS_ICON_DONE`        | `✅`                                     |
 | `KITTY_AGENTS_INTERVAL`         | `1` (segundos entre sondeos)             |
+| `KITTY_AGENTS_HISTORY`          | `20` (snapshots que se conservan)        |
 | `KITTY_AGENTS_DATA_DIR`         | `$XDG_DATA_HOME/kitty-agents`            |
 
 Los snapshots son TSV (`agente, sesión, directorio, nombre, fecha`) en el directorio de

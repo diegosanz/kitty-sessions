@@ -2,63 +2,45 @@ load test_helper
 
 CLAUDE_ID="11111111-2222-3333-4444-555555555555"
 
-@test "watch prefixes the tab title with the working icon" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "Thinking… (esc to interrupt)"
-  run kitty-agents watch
-  [ "$status" -eq 0 ]
-  grep -qxF 'set-tab-title -m id:7 ⚙ ✳ Claude Code' "$KITTEN_FAKE_LOG"
-}
-
-@test "watch uses the attention icon on permission prompts" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "Do you want to proceed? ❯ 1. Yes"
-  kitty-agents watch
-  grep -qxF 'set-tab-title -m id:7 🔔 ✳ Claude Code' "$KITTEN_FAKE_LOG"
-}
-
-@test "watch uses the done icon on an idle prompt" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "❯  Try \"fix lint errors\""
-  kitty-agents watch
-  grep -qxF 'set-tab-title -m id:7 ✅ ✳ Claude Code' "$KITTEN_FAKE_LOG"
-}
-
-@test "icons are configurable through the environment" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "esc to interrupt"
-  KITTY_AGENTS_ICON_WORKING="W" kitty-agents watch
-  grep -qxF 'set-tab-title -m id:7 W ✳ Claude Code' "$KITTEN_FAKE_LOG"
-}
-
-@test "watch leaves windows without an agent alone" {
-  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
-  kitty-agents watch
-  ! grep -q 'set-tab-title' "$KITTEN_FAKE_LOG"
-}
-
-@test "watch detects agents launched through node wrappers" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "opencode" node /usr/lib/node_modules/opencode/bin/opencode)
-  screen 7 "esc interrupt"
-  kitty-agents watch
-  grep -qxF 'set-tab-title -m id:7 ⚙ opencode' "$KITTEN_FAKE_LOG"
-}
-
-@test "watch autosaves the open sessions" {
+@test "watch autosaves once the open sessions change" {
   claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID" "mi sesión"
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "❯"
-  kitty-agents watch
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  write_ls "$BATS_TEST_TMPDIR/after.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/after.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
   run last_snapshot_rows
   [[ "$output" == "claude	$CLAUDE_ID	$BATS_TEST_TMPDIR	mi sesión	"* ]]
+}
+
+@test "watch does not overwrite the last snapshot with what it finds at startup" {
+  printf 'claude\t%s\t%s\tmi sesión\t2026-01-01T00:00:00Z\n' "$CLAUDE_ID" "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
+  write_ls < <(window_json 3 "$HOME" "zsh" zsh)
+  kitty-agents watch
+  run last_snapshot_rows
+  [[ "$output" == "claude	$CLAUDE_ID"* ]]
+}
+
+@test "watch ignores changes in the window title of an agent" {
+  claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID"
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "◐ pensando" claude)
+  write_ls "$BATS_TEST_TMPDIR/after.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "◑ pensando" claude)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/after.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
+  [ -z "$(ls "$KITTY_AGENTS_DATA_DIR" 2>/dev/null | grep agents_)" ]
 }
 
 @test "save takes the session id from the command line when present" {
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude --session-id "$CLAUDE_ID")
   run kitty-agents save
-  [ "$output" = "saved 1 agent session(s)" ]
+  [ "$output" = "Saved" ]
   run last_snapshot_rows
   [[ "$output" == "claude	$CLAUDE_ID	$BATS_TEST_TMPDIR	✳ Claude Code	"* ]]
+}
+
+@test "save detects agents launched through node wrappers" {
+  write_ls < <(window_json 8 "$BATS_TEST_TMPDIR" "opencode" node /usr/lib/node_modules/opencode/bin/opencode)
+  kitty-agents save
+  run last_snapshot_rows
+  [[ "$output" == "opencode	ses_fake123	"* ]]
 }
 
 @test "save discovers the opencode session through its database" {
@@ -70,18 +52,41 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
 
 @test "save skips agents whose session cannot be discovered" {
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  run kitty-agents save
-  [ "$output" = "saved 0 agent session(s)" ]
+  kitty-agents save
+  run last_snapshot_rows
+  [ -z "$output" ]
+}
+
+@test "save records windows without an agent as shells" {
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  kitty-agents save
+  run last_snapshot_rows
+  [[ "$output" == "shell	-	$BATS_TEST_TMPDIR	-	"* ]]
+}
+
+@test "save keeps the foreground command of a shell without running it" {
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "npm" npm run dev)
+  kitty-agents save
+  run last_snapshot_rows
+  [[ "$output" == "shell	-	$BATS_TEST_TMPDIR	npm run dev	"* ]]
 }
 
 @test "autosave never writes an empty snapshot" {
   claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID"
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  kitty-agents watch
-  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
-  kitty-agents watch
+  kitty-agents save
+  write_ls < /dev/null
+  KITTY_AGENTS_ONCE=2 kitty-agents watch
   run last_snapshot_rows
   [[ "$output" == "claude	$CLAUDE_ID"* ]]
+}
+
+@test "autosave follows the working directory of shells" {
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  write_ls "$BATS_TEST_TMPDIR/after.json" < <(window_json 3 "$HOME" "zsh" zsh)
+  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/after.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
+  run last_snapshot_rows
+  [[ "$output" == "shell	-	$HOME	-	"* ]]
 }
 
 @test "restore reopens saved sessions in new tabs" {
@@ -89,8 +94,42 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
   write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
   run kitty-agents restore
-  [ "$output" = "restored 1 agent session(s)" ]
+  [ "$output" = "Restored" ]
   grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- claude -r $CLAUDE_ID" "$KITTEN_FAKE_LOG"
+}
+
+@test "restore reopens saved shells in their directory" {
+  printf 'shell\t-\t%s\t-\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
+  write_ls < /dev/null
+  run kitty-agents restore
+  [ "$output" = "Restored" ]
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR" "$KITTEN_FAKE_LOG"
+  ! grep -q '^send-text' "$KITTEN_FAKE_LOG"
+}
+
+@test "restore types the saved command into the new shell without running it" {
+  printf 'shell\t-\t%s\tnpm run dev\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
+  write_ls < /dev/null
+  KITTEN_FAKE_LAUNCH_ID=42 kitty-agents restore
+  grep -qxF "send-text -m id:42 npm run dev" "$KITTEN_FAKE_LOG"
+}
+
+@test "restore skips shells whose directory already has one open" {
+  printf 'shell\t-\t%s\t-\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  kitty-agents restore
+  ! grep -q '^launch' "$KITTEN_FAKE_LOG"
+}
+
+@test "restore does not treat an agent window as an open shell" {
+  printf 'shell\t-\t%s\t-\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
+  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
+  kitty-agents restore
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR" "$KITTEN_FAKE_LOG"
 }
 
 @test "restore skips sessions that are already open" {
@@ -98,7 +137,7 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude -r "$CLAUDE_ID")
   run kitty-agents restore
-  [ "${lines[-1]}" = "restored 0 agent session(s), 1 already open" ]
+  [ "$output" = "Restored" ]
   ! grep -q '^launch' "$KITTEN_FAKE_LOG"
 }
 
@@ -107,19 +146,13 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   mkdir -p "$KITTY_AGENTS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_AGENTS_DATA_DIR/last"
   write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
   run kitty-agents restore
-  [ "${lines[-1]}" = "restored 0 agent session(s), 1 with missing directory, 1 with agent not installed" ]
+  [ "$output" = "Restored" ]
+  ! grep -q '^launch' "$KITTEN_FAKE_LOG"
 }
 
 @test "restore without a snapshot does nothing" {
   run kitty-agents restore
   [ "$output" = "nothing to restore" ]
-}
-
-@test "status reports the agent and state of a window" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "esc to interrupt"
-  run kitty-agents status 7
-  [ "$output" = "claude working" ]
 }
 
 @test "a second watcher for the same kitty exits immediately" {
@@ -129,7 +162,7 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
   run kitty-agents watch
   [ "$status" -eq 0 ]
-  ! grep -q 'set-tab-title' "$KITTEN_FAKE_LOG"
+  ! grep -q '^ls' "$KITTEN_FAKE_LOG"
 }
 
 @test "watch removes lock files of dead watchers" {
@@ -154,10 +187,3 @@ CLAUDE_ID="11111111-2222-3333-4444-555555555555"
   [ -f "$KITTY_AGENTS_DATA_DIR/last" ]
 }
 
-@test "watch resets the tab title once the agent exits" {
-  write_ls < <(window_json 7 "$BATS_TEST_TMPDIR" "✳ Claude Code" claude)
-  screen 7 "❯"
-  write_ls "$BATS_TEST_TMPDIR/after.json" < <(window_json 7 "$BATS_TEST_TMPDIR" "zsh" zsh)
-  KITTEN_FAKE_LS_NEXT="$BATS_TEST_TMPDIR/after.json" KITTY_AGENTS_ONCE=2 kitty-agents watch
-  grep -qxF 'set-tab-title -m id:7 ' "$KITTEN_FAKE_LOG"
-}

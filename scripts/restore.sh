@@ -10,46 +10,49 @@ if [ ! -f "$snapshot" ]; then
 fi
 
 already_open_sessions="$(open_sessions)"
-restored=0
-already_open=0
-missing_dir=0
-unavailable=0
+already_open_shell_cwds="$(open_shell_cwds)"
 
-is_open() {
-  printf '%s\n' "$already_open_sessions" | grep -qxF "$1"
-}
-
-skip() {
-  echo "skip: $2" >&2
-  eval "$1=\$(($1 + 1))"
+listed_in() {
+  printf '%s\n' "$1" | grep -qxF "$2"
 }
 
 launch_tab() {
   local cwd="$1"
   shift
-  kitten @ launch --type=tab --cwd "$cwd" -- "$@" >/dev/null
+  kitten @ launch --type=tab --cwd "$cwd" "$@"
+}
+
+python_escaped() {
+  sed 's/\\/\\\\/g' <<< "$1"
+}
+
+type_into_window() {
+  kitten @ send-text -m "id:$1" "$(python_escaped "$2")" >/dev/null
+}
+
+restore_shell() {
+  local cwd="$1" command="$2" window_id
+  listed_in "$already_open_shell_cwds" "$cwd" && return 0
+  window_id="$(launch_tab "$cwd")"
+  [ "$command" != "$EMPTY_FIELD" ] && type_into_window "$window_id" "$command"
+  return 0
+}
+
+restore_agent() {
+  local agent="$1" session_id="$2" cwd="$3"
+  listed_in "$already_open_sessions" "$session_id" && return 0
+  agent_available "$agent" || return 0
+  launch_tab "$cwd" -- $(agent_resume "$session_id") >/dev/null
 }
 
 while IFS=$'\t' read -r agent session_id cwd name saved_at; do
   [ -n "$agent" ] || continue
-  if is_open "$session_id"; then
-    skip already_open "$agent session $session_id is already open"
-    continue
+  [ -d "$cwd" ] || continue
+  if [ "$agent" = "$SHELL_ROW" ]; then
+    restore_shell "$cwd" "$name"
+  else
+    restore_agent "$agent" "$session_id" "$cwd"
   fi
-  if [ ! -d "$cwd" ]; then
-    skip missing_dir "directory $cwd no longer exists ($name)"
-    continue
-  fi
-  if ! agent_available "$agent"; then
-    skip unavailable "agent '$agent' is not available ($name)"
-    continue
-  fi
-  launch_tab "$cwd" $(agent_resume "$session_id")
-  restored=$((restored + 1))
 done < "$snapshot"
 
-summary="restored $restored agent session(s)"
-[ "$already_open" -gt 0 ] && summary="$summary, $already_open already open"
-[ "$missing_dir" -gt 0 ] && summary="$summary, $missing_dir with missing directory"
-[ "$unavailable" -gt 0 ] && summary="$summary, $unavailable with agent not installed"
-echo "$summary"
+echo "Restored"

@@ -1,20 +1,12 @@
 # kitty-agents
 
-Muestra el estado de los agentes de código (Claude Code, opencode) en el título de la tab
-de kitty, guarda las conversaciones abiertas y las restaura después reanudando la misma
-sesión. Todo en bash, sin servidor, sin hooks ni plugins en los agentes.
+Guarda las conversaciones abiertas con agentes de código (Claude Code, opencode) y las
+shells que tengas en kitty, y las restaura después reanudando la misma sesión. Todo en
+bash, sin servidor, sin hooks ni plugins en los agentes.
 
 Un único proceso `kitty-agents watch` por instancia de kitty recorre cada segundo las
-ventanas con `kitten @ ls`, detecta los agentes por el proceso en primer plano, lee su
-pantalla para deducir el estado y actualiza el título de la tab con un icono:
-
-| Icono | Estado                                            |
-| ----- | ------------------------------------------------- |
-| ⚙     | trabajando                                        |
-| 🔔    | esperando una decisión tuya (permiso, pregunta)   |
-| ✅    | terminado, esperando el siguiente prompt          |
-
-Cuando el agente termina, la tab vuelve a seguir el título de la ventana.
+ventanas con `kitten @ ls`, detecta los agentes por el proceso en primer plano y guarda un
+snapshot cada vez que cambia lo que hay abierto.
 
 ## Requisitos
 
@@ -51,10 +43,6 @@ map ctrl+shift+u launch --type=background kitty-agents restore
 ```zsh
 export PATH="$HOME/.local/share/kitty-agents-src/bin:$PATH"
 
-export KITTY_AGENTS_ICON_WORKING='⚙'
-export KITTY_AGENTS_ICON_ATTENTION='🔔'
-export KITTY_AGENTS_ICON_DONE='✅'
-
 if [[ -n "$KITTY_PID" ]] && command -v kitty-agents >/dev/null; then
   kitty-agents watch >/dev/null 2>&1 &!
 fi
@@ -67,17 +55,23 @@ solo sobrevive el primero. Muere solo cuando se cierra kitty.
 
 | Comando                       | Acción                                                        |
 | ----------------------------- | ------------------------------------------------------------- |
-| `kitty-agents watch`          | Observa las ventanas y refleja el estado en la tab           |
-| `kitty-agents save`           | Guarda las sesiones de agente abiertas                        |
-| `kitty-agents restore`        | Reabre en tabs nuevas las sesiones del último snapshot        |
-| `kitty-agents status <id>`    | Imprime agente y estado de la ventana `<id>`                  |
+| `kitty-agents watch`          | Observa las ventanas y guarda cuando cambia lo abierto        |
+| `kitty-agents save`           | Guarda las sesiones de agente y las shells abiertas           |
+| `kitty-agents restore`        | Reabre en tabs nuevas lo guardado en el último snapshot       |
 
 Restore es aditivo: abre una tab por sesión guardada, en su directorio, con
 `claude -r <id>` u `opencode -s <id>`. Se salta las sesiones ya abiertas, los directorios
 que ya no existen y los agentes no instalados.
 
-El watcher guarda automáticamente cada vez que cambia el conjunto de sesiones abiertas y
-nunca escribe un snapshot vacío, así que cerrar todas las tabs no borra el último estado.
+Las ventanas sin agente se guardan como shells: solo su directorio y, si había algo
+corriendo en primer plano, su comando. Restore abre una tab con tu shell en ese directorio
+y deja el comando escrito en el prompt sin ejecutarlo. Se salta los directorios en los que
+ya hay una shell abierta.
+
+El watcher guarda automáticamente cada vez que cambia lo que hay abierto (sesiones,
+shells, sus directorios o sus comandos) respecto a lo que encontró al arrancar, y nunca
+escribe un snapshot vacío. Así, abrir un kitty nuevo no pisa el último estado hasta que
+abres, cierras o mueves algo; restaura antes de ponerte a trabajar.
 Cada guardado crea un fichero nuevo y solo se conservan los últimos `KITTY_AGENTS_HISTORY`;
 los locks de watchers que ya no existen se borran al arrancar el siguiente.
 
@@ -92,25 +86,17 @@ los locks de watchers que ya no existen se borran al arrancar el siguiente.
 Sin `--session-id`, el descubrimiento es heurístico: si tienes dos ventanas de Claude en
 el mismo directorio se guardará la misma sesión para ambas.
 
-## Estados por pantalla
-
-Los patrones viven en `scripts/agents/<agente>.sh`, función `agent_status_from_screen`,
-y dependen de la UI de cada versión del agente. Si un estado deja de detectarse, ajusta
-ahí la expresión regular.
-
 ## Variables de entorno
 
 | Variable                        | Valor por defecto                        |
 | ------------------------------- | ---------------------------------------- |
-| `KITTY_AGENTS_ICON_WORKING`     | `⚙`                                      |
-| `KITTY_AGENTS_ICON_ATTENTION`   | `🔔`                                     |
-| `KITTY_AGENTS_ICON_DONE`        | `✅`                                     |
 | `KITTY_AGENTS_INTERVAL`         | `1` (segundos entre sondeos)             |
 | `KITTY_AGENTS_HISTORY`          | `20` (snapshots que se conservan)        |
 | `KITTY_AGENTS_DATA_DIR`         | `$XDG_DATA_HOME/kitty-agents`            |
 
 Los snapshots son TSV (`agente, sesión, directorio, nombre, fecha`) en el directorio de
-datos, con un enlace `last` al más reciente.
+datos, con un enlace `last` al más reciente. Las shells llevan `shell` como agente, `-` como
+sesión y el comando en primer plano como nombre (`-` si no había ninguno).
 
 ## Tests
 

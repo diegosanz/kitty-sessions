@@ -28,17 +28,6 @@ agent_resume() {
   printf 'opencode -s %q' "$1"
 }
 
-agent_status_from_screen() {
-  local screen="$1"
-  if grep -qiE "esc interrupt|esc to interrupt|working\.\.\.|thinking" <<< "$screen"; then
-    echo "working"
-  elif grep -qiE "permission|allow once|allow always|reject" <<< "$screen"; then
-    echo "attention"
-  elif grep -qiE "ctrl\+p|ctrl\+x|commands|enter send" <<< "$screen"; then
-    echo "done"
-  fi
-}
-
 opencode_session_from_cmdline() {
   grep -oE -- '(--session|-s)[ =]ses_[A-Za-z0-9]+' <<< "$1" | grep -oE 'ses_[A-Za-z0-9]+' | head -1 || true
 }

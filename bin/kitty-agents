@@ -7,10 +7,9 @@ usage() {
   cat >&2 <<'USAGE'
 usage: kitty-agents <command>
 
-  watch            observe agent windows and reflect their status in the tab title
-  save             save the open agent sessions
-  restore          reopen the sessions from the last snapshot
-  status <id>      print the status of the agent in window <id>
+  watch            save the open sessions and shells whenever they change
+  save             save the open sessions and shells
+  restore          reopen what the last snapshot holds
 USAGE
   exit 1
 }
@@ -19,6 +18,5 @@ case "${1:-}" in
   watch) exec "$SCRIPTS_DIR/watch.sh" ;;
   save) exec "$SCRIPTS_DIR/save.sh" manual ;;
   restore) exec "$SCRIPTS_DIR/restore.sh" ;;
-  status) exec "$SCRIPTS_DIR/status.sh" "${2:-}" ;;
   *) usage ;;
 esac

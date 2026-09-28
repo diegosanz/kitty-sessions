@@ -35,51 +35,23 @@ acquire_lock() {
   trap 'rm -f "$(lock_file)"' EXIT
 }
 
-declare -A tracked_windows=()
 previous_sessions=""
-
-refresh_window() {
-  local window_id="$1" cwd="$2" exes="$3" cmdlines="$4" title="$5" agent status session_id
-  if ! find_agent "$exes"; then
-    if [ -n "${tracked_windows[$window_id]:-}" ]; then
-      reset_tab_title "$window_id"
-      unset 'tracked_windows[$window_id]'
-    fi
-    return 0
-  fi
-  status="$(window_status "$agent" "$window_id")"
-  tracked_windows[$window_id]="$agent"
-  set_tab_status "$window_id" "$status" "$title"
-  session_id="$(agent_discover_session "$cwd" "$cmdlines")"
-  [ -n "$session_id" ] && current_sessions+="$agent:$session_id:$cwd"$'\n'
-  return 0
-}
-
-forget_closed_windows() {
-  local seen="$1" window_id
-  for window_id in "${!tracked_windows[@]}"; do
-    grep -qxF "$window_id" <<< "$seen" && continue
-    unset 'tracked_windows[$window_id]'
-  done
-}
+baseline_taken=""
 
 autosave_if_changed() {
-  if [ "$current_sessions" != "$previous_sessions" ]; then
-    previous_sessions="$current_sessions"
-    "$SCRIPTS_DIR/save.sh" auto || true
+  [ "$current_sessions" != "$previous_sessions" ] || return 0
+  previous_sessions="$current_sessions"
+  if [ -z "$baseline_taken" ]; then
+    baseline_taken=1
+    return 0
   fi
+  "$SCRIPTS_DIR/save.sh" auto || true
 }
 
 cycle() {
-  local listing seen="" window_id cwd exes cmdlines title
+  local listing
   listing="$(kitten_ls)" || return 1
-  current_sessions=""
-  while IFS=$'\t' read -r window_id cwd exes cmdlines title; do
-    [ -n "$window_id" ] || continue
-    seen+="$window_id"$'\n'
-    refresh_window "$window_id" "$cwd" "$exes" "$cmdlines" "$title"
-  done <<< "$listing"
-  forget_closed_windows "$seen"
+  current_sessions="$(snapshot_rows "$listing" | snapshot_change_key)"
   autosave_if_changed
 }
 

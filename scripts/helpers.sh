@@ -65,43 +65,6 @@ find_agent() {
   return 1
 }
 
-status_icon() {
-  case "$1" in
-    working) echo "${KITTY_AGENTS_ICON_WORKING-⚙}" ;;
-    attention) echo "${KITTY_AGENTS_ICON_ATTENTION-🔔}" ;;
-    done) echo "${KITTY_AGENTS_ICON_DONE-✅}" ;;
-    *) echo "" ;;
-  esac
-}
-
-set_tab_title() {
-  kitten @ set-tab-title -m "id:$1" "$2" >/dev/null 2>&1 || true
-}
-
-set_tab_status() {
-  local window_id="$1" status="$2" title="$3" icon
-  icon="$(status_icon "$status")"
-  if [ -n "$icon" ]; then
-    set_tab_title "$window_id" "$icon $title"
-  else
-    set_tab_title "$window_id" "$title"
-  fi
-}
-
-reset_tab_title() {
-  set_tab_title "$1" ""
-}
-
-window_screen() {
-  kitten @ get-text -m "id:$1" --extent screen 2>/dev/null || true
-}
-
-window_status() {
-  local agent="$1" window_id="$2"
-  load_agent "$agent" || return 1
-  agent_status_from_screen "$(window_screen "$window_id")"
-}
-
 write_snapshot() {
   local rows="$1" dir snapshot
   dir="$(data_dir)"
@@ -120,11 +83,68 @@ prune_old_snapshots() {
   done < <(ls -1r "$dir"/agents_*.tsv 2>/dev/null | tail -n +"$(( $(snapshots_to_keep) + 1 ))")
 }
 
+SHELL_ROW="shell"
+EMPTY_FIELD="-"
+
+shell_names() {
+  echo "zsh bash fish sh $(basename "${SHELL:-}")"
+}
+
+is_shell() {
+  grep -qw -- "$1" <<< "$(shell_names)"
+}
+
+foreground_command() {
+  local exes="$1" cmdlines="$2" first_exe
+  first_exe="${exes%% *}"
+  if [ -z "$first_exe" ] || is_shell "$first_exe"; then
+    echo "$EMPTY_FIELD"
+  else
+    echo "${cmdlines%% || *}"
+  fi
+}
+
+snapshot_row() {
+  local cwd="$1" exes="$2" cmdlines="$3" title="$4" saved_at="$5" agent session_id name
+  if ! find_agent "$exes"; then
+    printf '%s\t%s\t%s\t%s\t%s\n' "$SHELL_ROW" "$EMPTY_FIELD" "$cwd" "$(foreground_command "$exes" "$cmdlines")" "$saved_at"
+    return 0
+  fi
+  session_id="$(agent_discover_session "$cwd" "$cmdlines")"
+  [ -n "$session_id" ] || return 0
+  name="$(agent_session_name "$session_id" "$cwd")"
+  [ -n "$name" ] || name="$title"
+  [ -n "$name" ] || name="$EMPTY_FIELD"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$agent" "$session_id" "$cwd" "$name" "$saved_at"
+}
+
+snapshot_rows() {
+  local window_id cwd exes cmdlines title saved_at
+  saved_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  while IFS=$'\t' read -r window_id cwd exes cmdlines title; do
+    [ -n "$window_id" ] || continue
+    snapshot_row "$cwd" "$exes" "$cmdlines" "$title" "$saved_at"
+  done <<< "$1"
+}
+
+snapshot_change_key() {
+  awk -F'\t' -v OFS='\t' -v shell="$SHELL_ROW" '{ print $1, $2, $3, ($1 == shell ? $4 : "") }'
+}
+
+open_shell_cwds() {
+  local window_id cwd exes cmdlines title
+  while IFS=$'\t' read -r window_id cwd exes cmdlines title; do
+    find_agent "$exes" && continue
+    echo "$cwd"
+  done < <(kitten_ls)
+}
+
 open_sessions() {
   local window_id cwd exes cmdlines title agent session_id
   while IFS=$'\t' read -r window_id cwd exes cmdlines title; do
     find_agent "$exes" || continue
     session_id="$(agent_discover_session "$cwd" "$cmdlines")"
-    [ -n "$session_id" ] && echo "$session_id"
+    [ -n "$session_id" ] || continue
+    echo "$session_id"
   done < <(kitten_ls)
 }

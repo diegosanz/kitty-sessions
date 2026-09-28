@@ -30,17 +30,6 @@ agent_resume() {
   printf 'claude -r %q' "$1"
 }
 
-agent_status_from_screen() {
-  local screen="$1"
-  if grep -q "esc to interrupt" <<< "$screen"; then
-    echo "working"
-  elif grep -qE "Do you want to|❯ 1\.|Enter to confirm|Esc to cancel" <<< "$screen"; then
-    echo "attention"
-  elif grep -q "❯" <<< "$screen"; then
-    echo "done"
-  fi
-}
-
 claude_session_from_cmdline() {
   grep -oE -- '(--session-id|--resume|-r)[ =][0-9a-f-]{36}' <<< "$1" | grep -oE '[0-9a-f-]{36}' | head -1 || true
 }

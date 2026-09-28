@@ -5,12 +5,12 @@ setup() {
   export KITTY_AGENTS_DATA_DIR="$BATS_TEST_TMPDIR/data"
   export KITTEN_FAKE_LOG="$BATS_TEST_TMPDIR/kitten.log"
   export KITTEN_FAKE_LS="$BATS_TEST_TMPDIR/ls.json"
-  export KITTEN_FAKE_SCREENS="$BATS_TEST_TMPDIR/screens"
   export CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude"
   export HOME="$BATS_TEST_TMPDIR/home"
   export KITTY_PID=""
   export KITTY_AGENTS_ONCE=1
-  mkdir -p "$KITTEN_FAKE_SCREENS" "$HOME"
+  unset KITTY_AGENTS_INTERVAL KITTY_AGENTS_HISTORY
+  mkdir -p "$HOME"
   : > "$KITTEN_FAKE_LOG"
 }
 
@@ -26,10 +26,6 @@ window_json() {
 write_ls() {
   local target="${1:-$KITTEN_FAKE_LS}"
   jq -s '[{tabs: [{windows: .}]}]' > "$target"
-}
-
-screen() {
-  printf '%s\n' "$2" > "$KITTEN_FAKE_SCREENS/$1"
 }
 
 claude_session_file() {

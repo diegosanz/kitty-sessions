@@ -123,13 +123,13 @@ kitty_alive() {
 }
 
 bounded_cycles() {
-  [ -n "${KITTY_AGENTS_ONCE:-}" ]
+  [ -n "${KITTY_SESSIONS_ONCE:-}" ]
 }
 
 cycles_left() {
   bounded_cycles || return 0
-  [ "$KITTY_AGENTS_ONCE" -gt 0 ] || return 1
-  KITTY_AGENTS_ONCE=$((KITTY_AGENTS_ONCE - 1))
+  [ "$KITTY_SESSIONS_ONCE" -gt 0 ] || return 1
+  KITTY_SESSIONS_ONCE=$((KITTY_SESSIONS_ONCE - 1))
 }
 
 pause() {

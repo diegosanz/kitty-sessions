@@ -2,7 +2,7 @@ SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENTS_DIR="$SCRIPTS_DIR/agents"
 
 data_dir() {
-  echo "${KITTY_AGENTS_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/kitty-agents}"
+  echo "${KITTY_SESSIONS_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/kitty-sessions}"
 }
 
 last_snapshot() {
@@ -43,11 +43,11 @@ snapshot_for() {
 }
 
 poll_interval() {
-  echo "${KITTY_AGENTS_INTERVAL:-1}"
+  echo "${KITTY_SESSIONS_INTERVAL:-1}"
 }
 
 snapshots_to_keep() {
-  echo "${KITTY_AGENTS_HISTORY:-20}"
+  echo "${KITTY_SESSIONS_HISTORY:-20}"
 }
 
 list_agents() {
@@ -97,7 +97,7 @@ kitten_ls() {
 }
 
 bell_icon() {
-  echo "${KITTY_AGENTS_ICON_BELL-🔔}"
+  echo "${KITTY_SESSIONS_ICON_BELL-🔔}"
 }
 
 set_tab_title() {

@@ -2,14 +2,14 @@ ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 
 setup() {
   export PATH="$ROOT/tests/fakes:$ROOT/bin:$PATH"
-  export KITTY_AGENTS_DATA_DIR="$BATS_TEST_TMPDIR/data"
+  export KITTY_SESSIONS_DATA_DIR="$BATS_TEST_TMPDIR/data"
   export KITTEN_FAKE_LOG="$BATS_TEST_TMPDIR/kitten.log"
   export KITTEN_FAKE_LS="$BATS_TEST_TMPDIR/ls.json"
   export CLAUDE_CONFIG_DIR="$BATS_TEST_TMPDIR/claude"
   export HOME="$BATS_TEST_TMPDIR/home"
   export KITTY_PID=""
-  export KITTY_AGENTS_ONCE=1
-  unset KITTY_AGENTS_INTERVAL KITTY_AGENTS_HISTORY
+  export KITTY_SESSIONS_ONCE=1
+  unset KITTY_SESSIONS_INTERVAL KITTY_SESSIONS_HISTORY
   mkdir -p "$HOME"
   : > "$KITTEN_FAKE_LOG"
 }
@@ -55,5 +55,5 @@ claude_session_file() {
 }
 
 last_snapshot_rows() {
-  cat "$KITTY_AGENTS_DATA_DIR/last"
+  cat "$KITTY_SESSIONS_DATA_DIR/last"
 }

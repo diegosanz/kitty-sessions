@@ -1,10 +1,10 @@
-# kitty-agents
+# kitty-sessions
 
 Guarda las conversaciones abiertas con agentes de código (Claude Code, opencode) y las
 shells que tengas en kitty, y las restaura después reanudando la misma sesión. Todo en
 bash, sin servidor, sin hooks ni plugins en los agentes.
 
-Un único proceso `kitty-agents watch` por instancia de kitty recorre cada segundo las
+Un único proceso `kitty-sessions watch` por instancia de kitty recorre cada segundo las
 ventanas con `kitten @ ls`, detecta los agentes por el proceso en primer plano, guarda un
 snapshot cada vez que cambia lo que hay abierto y pone una campana en la tab cuando un
 agente termina sin que lo estés mirando.
@@ -20,7 +20,7 @@ agente termina sin que lo estés mirando.
 ## Instalación
 
 ```sh
-git clone https://github.com/diegosanz/kitty-agents ~/.local/share/kitty-agents-src
+git clone https://github.com/diegosanz/kitty-sessions ~/.local/share/kitty-sessions-src
 ```
 
 Y añade `bin` al `PATH` (ver la sección de `.zshrc`).
@@ -36,22 +36,22 @@ allow_remote_control yes
 Opcional, un atajo para restaurar las sesiones guardadas:
 
 ```
-map ctrl+shift+u launch --type=background kitty-agents restore
+map ctrl+shift+u launch --type=background kitty-sessions restore
 ```
 
 Y otro para guardar lo abierto bajo un nombre que te pida kitty:
 
 ```
-map ctrl+shift+s launch --type=background sh -c 'name=$(kitten ask --type=line --prompt "Nombre de la sesión: ") && kitty-agents save "$name"'
+map ctrl+shift+s launch --type=background sh -c 'name=$(kitten ask --type=line --prompt "Nombre de la sesión: ") && kitty-sessions save "$name"'
 ```
 
 ### `~/.zshrc`
 
 ```zsh
-export PATH="$HOME/.local/share/kitty-agents-src/bin:$PATH"
+export PATH="$HOME/.local/share/kitty-sessions-src/bin:$PATH"
 
-if [[ -n "$KITTY_PID" ]] && command -v kitty-agents >/dev/null; then
-  kitty-agents watch >/dev/null 2>&1 &!
+if [[ -n "$KITTY_PID" ]] && command -v kitty-sessions >/dev/null; then
+  kitty-sessions watch >/dev/null 2>&1 &!
 fi
 ```
 
@@ -60,13 +60,13 @@ solo sobrevive el primero. Muere solo cuando se cierra kitty.
 
 ## Uso
 
-| Comando                         | Acción                                                        |
-| ------------------------------- | ------------------------------------------------------------- |
-| `kitty-agents watch`            | Observa las ventanas, guarda cuando cambia lo abierto y avisa |
-| `kitty-agents save [nombre]`    | Guarda las sesiones de agente y las shells abiertas           |
-| `kitty-agents restore [nombre]` | Reabre en tabs nuevas lo guardado                             |
-| `kitty-agents list`             | Lista `_auto` y las sesiones con nombre                       |
-| `kitty-agents delete <nombre>`  | Borra una sesión con nombre                                   |
+| Comando                           | Acción                                                        |
+| --------------------------------- | ------------------------------------------------------------- |
+| `kitty-sessions watch`            | Observa las ventanas, guarda cuando cambia lo abierto y avisa |
+| `kitty-sessions save [nombre]`    | Guarda las sesiones de agente y las shells abiertas           |
+| `kitty-sessions restore [nombre]` | Reabre en tabs nuevas lo guardado                             |
+| `kitty-sessions list`             | Lista `_auto` y las sesiones con nombre                       |
+| `kitty-sessions delete <nombre>`  | Borra una sesión con nombre                                   |
 
 Sin nombre, `save` y `restore` trabajan sobre `_auto`, la sesión que mantiene el watcher.
 Con nombre (`[A-Za-z0-9_-]`), `save` escribe una foto fija que solo cambia si vuelves a
@@ -86,7 +86,7 @@ El watcher guarda automáticamente cada vez que cambia lo que hay abierto (sesio
 shells, sus directorios o sus comandos) respecto a lo que encontró al arrancar, y nunca
 escribe un snapshot vacío. Así, abrir un kitty nuevo no pisa el último estado hasta que
 abres, cierras o mueves algo; restaura antes de ponerte a trabajar.
-Cada guardado crea un fichero nuevo y solo se conservan los últimos `KITTY_AGENTS_HISTORY`;
+Cada guardado crea un fichero nuevo y solo se conservan los últimos `KITTY_SESSIONS_HISTORY`;
 los locks de watchers que ya no existen se borran al arrancar el siguiente.
 
 ## Campana al terminar
@@ -115,12 +115,12 @@ el mismo directorio se guardará la misma sesión para ambas.
 
 ## Variables de entorno
 
-| Variable                        | Valor por defecto                        |
-| ------------------------------- | ---------------------------------------- |
-| `KITTY_AGENTS_ICON_BELL`        | `🔔`                                     |
-| `KITTY_AGENTS_INTERVAL`         | `1` (segundos entre sondeos)             |
-| `KITTY_AGENTS_HISTORY`          | `20` (snapshots que se conservan)        |
-| `KITTY_AGENTS_DATA_DIR`         | `$XDG_DATA_HOME/kitty-agents`            |
+| Variable                   | Valor por defecto                 |
+| -------------------------- | --------------------------------- |
+| `KITTY_SESSIONS_ICON_BELL` | `🔔`                              |
+| `KITTY_SESSIONS_INTERVAL`  | `1` (segundos entre sondeos)      |
+| `KITTY_SESSIONS_HISTORY`   | `20` (snapshots que se conservan) |
+| `KITTY_SESSIONS_DATA_DIR`  | `$XDG_DATA_HOME/kitty-sessions`   |
 
 Los snapshots son TSV (`agente, sesión, directorio, nombre, fecha`) en el directorio de
 datos, con un enlace `last` al más reciente. Las sesiones con nombre viven en

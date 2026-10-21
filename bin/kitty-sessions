@@ -5,7 +5,7 @@ SCRIPTS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../scripts" &
 
 usage() {
   cat >&2 <<'USAGE'
-usage: kitty-agents <command> [name]
+usage: kitty-sessions <command> [name]
 
   watch            save the open sessions and shells whenever they change
   save [name]      save the open sessions and shells, under a name if given

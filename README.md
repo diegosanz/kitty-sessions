@@ -1,7 +1,6 @@
 # kitty-sessions
 
-Guarda las conversaciones abiertas con agentes de código (Claude Code, opencode) y las
-shells que tengas en kitty, y las restaura después reanudando la misma sesión. Todo en
+Guarda las tabs abiertas. Las tabs con Claude Code las restaura después reanudando la misma sesión. Todo en
 bash, sin servidor, sin hooks ni plugins en los agentes.
 
 Un único proceso `kitty-sessions watch` por instancia de kitty recorre cada segundo las
@@ -74,8 +73,9 @@ guardar con ese nombre: el watcher no la toca, la poda no la borra y `restore <n
 reabre igual que `_auto`. `_auto` está reservado y no se puede borrar.
 
 Restore es aditivo: abre una tab por sesión guardada, en su directorio, con
-`claude -r <id>` u `opencode -s <id>`. Se salta las sesiones ya abiertas, los directorios
-que ya no existen y los agentes no instalados.
+`claude -r <id>`, o con un `opencode` nuevo para las tabs de opencode. Se salta las
+sesiones de Claude ya abiertas, los directorios que ya no existen y los agentes no
+instalados; las tabs de opencode se reabren siempre.
 
 Las ventanas sin agente se guardan como shells: solo su directorio y, si había algo
 corriendo en primer plano, su comando. Restore abre una tab con tu shell en ese directorio
@@ -107,8 +107,8 @@ momento queda fuera.
 - **Claude Code**: `--session-id`, `--resume` o `-r` en la línea de comandos; si no, el
   `.jsonl` más reciente de `~/.claude/projects/<directorio>/`. El nombre guardado es el
   `customTitle` de la sesión (`/rename`) o el título de la ventana.
-- **opencode**: `-s`/`--session` en la línea de comandos; si no, la sesión más reciente
-  de ese directorio en `opencode db`.
+- **opencode**: no se busca sesión. Se guarda solo el directorio (con `-` como sesión) y
+  restore lanza `opencode` a secas.
 
 Sin `--session-id`, el descubrimiento es heurístico: si tienes dos ventanas de Claude en
 el mismo directorio se guardará la misma sesión para ambas.

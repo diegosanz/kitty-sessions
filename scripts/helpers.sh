@@ -74,12 +74,7 @@ agent_available() {
 
 kitten_ls() {
   kitten @ ls 2>/dev/null | jq -r '
-    def exe_name:
-      (.cmdline // []) as $argv
-      | ($argv[0] // "" | split("/") | last) as $first
-      | if ($first == "node" or $first == "bun" or $first == "deno")
-        then ($argv[1] // "" | split("/") | last)
-        else $first end;
+    def exe_name: (.cmdline // [])[0] // "" | split("/") | last;
     .[].tabs[]
     | (.is_active // false) as $tab_active
     | .windows[]
@@ -212,7 +207,7 @@ open_sessions() {
   while IFS=$'\t' read -r window_id cwd exes cmdlines pids tab_active title; do
     find_agent "$exes" || continue
     session_id="$(agent_discover_session "$cwd" "$cmdlines" "$pids")"
-    [ -n "$session_id" ] || continue
+    [ -n "$session_id" ] && [ "$session_id" != "$EMPTY_FIELD" ] || continue
     echo "$session_id"
   done < <(kitten_ls)
 }

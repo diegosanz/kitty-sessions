@@ -107,18 +107,12 @@ OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
   [[ "$output" == "claude	$CLAUDE_ID	$BATS_TEST_TMPDIR	✳ Claude Code	"* ]]
 }
 
-@test "save detects agents launched through node wrappers" {
-  write_ls < <(window_json 8 "$BATS_TEST_TMPDIR" "opencode" node /usr/lib/node_modules/opencode/bin/opencode)
-  kitty-sessions save
-  run last_snapshot_rows
-  [[ "$output" == "opencode	ses_fake123	"* ]]
-}
-
-@test "save discovers the opencode session through its database" {
+@test "save records opencode without a session" {
   write_ls < <(window_json 8 "$BATS_TEST_TMPDIR" "opencode" opencode)
   kitty-sessions save
   run last_snapshot_rows
-  [[ "$output" == "opencode	ses_fake123	$BATS_TEST_TMPDIR	Sesión opencode	"* ]]
+  [[ "$output" == "opencode	-	$BATS_TEST_TMPDIR	opencode	"* ]]
+  ! grep -q '^opencode' "$KITTEN_FAKE_LOG"
 }
 
 @test "save tells apart several claudes open in the same directory" {
@@ -194,6 +188,15 @@ OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
   run kitty-sessions restore
   [ "$output" = "Restored" ]
   grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- claude -r $CLAUDE_ID" "$KITTEN_FAKE_LOG"
+}
+
+@test "restore starts a fresh opencode without resuming a session" {
+  printf 'opencode\t-\t%s\topencode\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_SESSIONS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_SESSIONS_DATA_DIR/last"
+  write_ls < <(window_json 8 "$HOME" "opencode" opencode)
+  run kitty-sessions restore
+  [ "$output" = "Restored" ]
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- opencode" "$KITTEN_FAKE_LOG"
 }
 
 @test "restore reopens saved shells in their directory" {

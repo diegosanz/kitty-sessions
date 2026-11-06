@@ -8,6 +8,10 @@ agent_binary() {
   echo "herdr"
 }
 
+agent_tab_title() {
+  echo "Herdr"
+}
+
 agent_matches() {
   grep -qw "herdr" <<< "$1"
 }

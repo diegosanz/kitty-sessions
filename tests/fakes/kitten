@@ -20,5 +20,6 @@ case "$command" in
   set-tab-title) ;;
   launch) echo "${KITTEN_FAKE_LAUNCH_ID:-100}" ;;
   send-text) ;;
+  close-tab) ;;
   *) exit 1 ;;
 esac

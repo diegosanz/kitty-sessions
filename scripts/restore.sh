@@ -43,11 +43,22 @@ restore_shell() {
   return 0
 }
 
+tab_title_options() {
+  agent_has_tab_title || return 0
+  printf -- '--tab-title\n%s\n' "$(agent_tab_title)"
+}
+
 restore_agent() {
-  local agent="$1" session_id="$2" cwd="$3"
+  local agent="$1" session_id="$2" cwd="$3" title_options
   listed_in "$already_open_sessions" "$session_id" && return 0
   agent_available "$agent" || return 0
-  launch_tab "$cwd" -- $(agent_resume "$session_id") >/dev/null
+  mapfile -t title_options < <(tab_title_options)
+  launch_tab "$cwd" "${title_options[@]}" -- $(agent_resume "$session_id") >/dev/null
+}
+
+close_invoking_tab() {
+  [ -n "${KITTY_WINDOW_ID:-}" ] || return 0
+  kitten @ close-tab -m "window_id:$KITTY_WINDOW_ID" >/dev/null 2>&1 || true
 }
 
 while IFS=$'\t' read -r agent session_id cwd name saved_at; do
@@ -61,3 +72,4 @@ while IFS=$'\t' read -r agent session_id cwd name saved_at; do
 done < "$snapshot"
 
 echo "Restored"
+close_invoking_tab

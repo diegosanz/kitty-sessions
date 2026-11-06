@@ -224,8 +224,8 @@ OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
   write_ls < /dev/null
   run kitty-sessions restore
   [ "$output" = "Restored" ]
-  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- herdr" "$KITTEN_FAKE_LOG"
-  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- herdr --session work" "$KITTEN_FAKE_LOG"
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR --tab-title Herdr -- herdr" "$KITTEN_FAKE_LOG"
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR --tab-title Herdr -- herdr --session work" "$KITTEN_FAKE_LOG"
 }
 
 @test "restore skips herdr sessions already attached in a tab" {
@@ -286,6 +286,30 @@ OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
   run kitty-sessions restore
   [ "$output" = "Restored" ]
   ! grep -q '^launch' "$KITTEN_FAKE_LOG"
+}
+
+@test "restore closes the tab it was run from" {
+  printf 'claude\t%s\t%s\tmi sesión\t2026-01-01T00:00:00Z\n' "$CLAUDE_ID" "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_SESSIONS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_SESSIONS_DATA_DIR/last"
+  write_ls < <(window_json 3 "$HOME" "zsh" zsh)
+  KITTY_WINDOW_ID=3 kitty-sessions restore
+  [ "$(tail -1 "$KITTEN_FAKE_LOG")" = "close-tab -m window_id:3" ]
+}
+
+@test "restore leaves the tabs open when it runs outside a kitty window" {
+  printf 'claude\t%s\t%s\tmi sesión\t2026-01-01T00:00:00Z\n' "$CLAUDE_ID" "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_SESSIONS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_SESSIONS_DATA_DIR/last"
+  write_ls < <(window_json 3 "$HOME" "zsh" zsh)
+  kitty-sessions restore
+  ! grep -q '^close-tab' "$KITTEN_FAKE_LOG"
+}
+
+@test "restore reopens a shell in the directory of the tab it is about to close" {
+  printf 'shell\t-\t%s\t-\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_SESSIONS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_SESSIONS_DATA_DIR/last"
+  write_ls < <(window_json 3 "$BATS_TEST_TMPDIR" "zsh" zsh)
+  KITTY_WINDOW_ID=3 kitty-sessions restore
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR" "$KITTEN_FAKE_LOG"
 }
 
 @test "restore without a snapshot does nothing" {

@@ -74,9 +74,10 @@ reabre igual que `_auto`. `_auto` está reservado y no se puede borrar.
 
 Restore es aditivo: abre una tab por sesión guardada, en su directorio, con
 `claude -r <id>`, con un `opencode` nuevo para las tabs de opencode, o con `herdr`
-reenganchado a su sesión. Se salta las sesiones de Claude y de herdr ya abiertas, los
+reenganchado a su sesión en una tab titulada `Herdr`. Se salta las sesiones de Claude y de herdr ya abiertas, los
 directorios que ya no existen y los agentes no instalados; las tabs de opencode se
-reabren siempre.
+reabren siempre. Al terminar cierra la tab desde la que lo ejecutaste; lanzado en segundo
+plano (como con el atajo de `kitty.conf`) no cierra ninguna.
 
 Las ventanas sin agente se guardan como shells: solo su directorio y, si había algo
 corriendo en primer plano, su comando. Restore abre una tab con tu shell en ese directorio

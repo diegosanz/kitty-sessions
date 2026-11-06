@@ -60,12 +60,16 @@ list_agents() {
 load_agent() {
   local file="$AGENTS_DIR/$1.sh"
   [ -f "$file" ] || return 1
-  unset -f agent_finished agent_finished_transition
+  unset -f agent_finished agent_finished_transition agent_tab_title
   source "$file"
 }
 
 agent_reports_completion() {
   declare -F agent_finished_transition >/dev/null
+}
+
+agent_has_tab_title() {
+  declare -F agent_tab_title >/dev/null
 }
 
 agent_available() {
@@ -197,6 +201,7 @@ snapshot_change_key() {
 open_shell_cwds() {
   local window_id cwd exes cmdlines pids tab_active title
   while IFS=$'\t' read -r window_id cwd exes cmdlines pids tab_active title; do
+    [ "$window_id" = "${KITTY_WINDOW_ID:-}" ] && continue
     find_agent "$exes" && continue
     echo "$cwd"
   done < <(kitten_ls)

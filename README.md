@@ -13,7 +13,7 @@ agente termina sin que lo estés mirando.
 - bash 4+
 - kitty 0.48 o superior con `allow_remote_control yes`
 - `jq`
-- Agentes opcionales en el `PATH`: `claude`, `opencode`
+- Agentes opcionales en el `PATH`: `claude`, `opencode`, `herdr`
 - Para los tests: `bats` (`pacman -S bats` en Arch)
 
 ## Instalación
@@ -73,9 +73,10 @@ guardar con ese nombre: el watcher no la toca, la poda no la borra y `restore <n
 reabre igual que `_auto`. `_auto` está reservado y no se puede borrar.
 
 Restore es aditivo: abre una tab por sesión guardada, en su directorio, con
-`claude -r <id>`, o con un `opencode` nuevo para las tabs de opencode. Se salta las
-sesiones de Claude ya abiertas, los directorios que ya no existen y los agentes no
-instalados; las tabs de opencode se reabren siempre.
+`claude -r <id>`, con un `opencode` nuevo para las tabs de opencode, o con `herdr`
+reenganchado a su sesión. Se salta las sesiones de Claude y de herdr ya abiertas, los
+directorios que ya no existen y los agentes no instalados; las tabs de opencode se
+reabren siempre.
 
 Las ventanas sin agente se guardan como shells: solo su directorio y, si había algo
 corriendo en primer plano, su comando. Restore abre una tab con tu shell en ese directorio
@@ -109,6 +110,9 @@ momento queda fuera.
   `customTitle` de la sesión (`/rename`) o el título de la ventana.
 - **opencode**: no se busca sesión. Se guarda solo el directorio (con `-` como sesión) y
   restore lanza `opencode` a secas.
+- **herdr**: la sesión es la de `--session <nombre>` o `session attach <nombre>`, o
+  `default` si no se indica. Restore lanza `herdr` (o `herdr --session <nombre>`), que se
+  vuelve a enganchar a la sesión persistente con todos sus paneles.
 
 Sin `--session-id`, el descubrimiento es heurístico: si tienes dos ventanas de Claude en
 el mismo directorio se guardará la misma sesión para ambas.
@@ -133,5 +137,5 @@ sesión y el comando en primer plano como nombre (`-` si no había ninguno).
 bats tests/
 ```
 
-Los tests usan fakes de `kitten`, `claude` y `opencode` en `tests/fakes`, sin necesidad de
-kitty en ejecución.
+Los tests usan fakes de `kitten`, `claude`, `opencode` y `herdr` en `tests/fakes`, sin
+necesidad de kitty en ejecución.

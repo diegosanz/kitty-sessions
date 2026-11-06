@@ -115,6 +115,25 @@ OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
   ! grep -q '^opencode' "$KITTEN_FAKE_LOG"
 }
 
+@test "save records herdr under its default session" {
+  write_ls < <(window_json 9 "$BATS_TEST_TMPDIR" "herdr" herdr)
+  kitty-sessions save
+  run last_snapshot_rows
+  [[ "$output" == "herdr	default	$BATS_TEST_TMPDIR	herdr	"* ]]
+  ! grep -q '^herdr' "$KITTEN_FAKE_LOG"
+}
+
+@test "save records the named session herdr is attached to" {
+  write_ls < <(
+    window_json 9 "$BATS_TEST_TMPDIR" "herdr" herdr --session work
+    window_json 10 "$HOME" "herdr" herdr session attach side
+  )
+  kitty-sessions save
+  run last_snapshot_rows
+  [[ "${lines[0]}" == "herdr	work	$BATS_TEST_TMPDIR	"* ]]
+  [[ "${lines[1]}" == "herdr	side	$HOME	"* ]]
+}
+
 @test "save tells apart several claudes open in the same directory" {
   claude_session_file "$BATS_TEST_TMPDIR" "$CLAUDE_ID"
   claude_session_file "$BATS_TEST_TMPDIR" "$OTHER_CLAUDE_ID"
@@ -197,6 +216,24 @@ OTHER_CLAUDE_ID="66666666-7777-8888-9999-000000000000"
   run kitty-sessions restore
   [ "$output" = "Restored" ]
   grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- opencode" "$KITTEN_FAKE_LOG"
+}
+
+@test "restore relaunches herdr attached to its saved session" {
+  printf 'herdr\tdefault\t%s\therdr\t2026-01-01T00:00:00Z\nherdr\twork\t%s\therdr\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_SESSIONS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_SESSIONS_DATA_DIR/last"
+  write_ls < /dev/null
+  run kitty-sessions restore
+  [ "$output" = "Restored" ]
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- herdr" "$KITTEN_FAKE_LOG"
+  grep -qxF "launch --type=tab --cwd $BATS_TEST_TMPDIR -- herdr --session work" "$KITTEN_FAKE_LOG"
+}
+
+@test "restore skips herdr sessions already attached in a tab" {
+  printf 'herdr\tdefault\t%s\therdr\t2026-01-01T00:00:00Z\n' "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/snap.tsv"
+  mkdir -p "$KITTY_SESSIONS_DATA_DIR" && ln -s "$BATS_TEST_TMPDIR/snap.tsv" "$KITTY_SESSIONS_DATA_DIR/last"
+  write_ls < <(window_json 9 "$HOME" "herdr" herdr)
+  kitty-sessions restore
+  ! grep -q '^launch' "$KITTEN_FAKE_LOG"
 }
 
 @test "restore reopens saved shells in their directory" {
